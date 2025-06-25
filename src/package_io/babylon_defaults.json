@@ -85,7 +85,7 @@
   },
   "participants": [
     {
-      "image": "ubuntu:22.04",
+      "image": "babylonlabs/babylond:v2.1.0",
       "account_balance": "1000000000000000",
       "bond_amount": "300000000000000",
       "count": 1,
@@ -103,7 +103,7 @@
     "image": "bitcoin/bitcoin:latest"
   },
   "staking_backend": {
-    "enabled": false,
+    "enabled": true,
     "indexer": {
       "image": "python:3.11-alpine",
       "min_cpu": 2000,

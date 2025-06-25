@@ -16,7 +16,7 @@ def deploy(plan, backend_args, parsed_args):
             },
             env_vars={
                 "MONGO_INITDB_ROOT_USERNAME": "admin",
-                "MONGO_INITDB_ROOT_PASSWORD": "password123"
+                "MONGO_INITDB_ROOT_PASSWORD": "${MONGO_PASSWORD:-dev}"
             }
         )
     )
@@ -36,77 +36,61 @@ def deploy(plan, backend_args, parsed_args):
         description="Waiting for MongoDB to be ready"
     )
     
-    indexer_config = staking_config["indexer"]
     indexer_service = plan.add_service(
-        name="staking-indexer",
+        name="babylon-staking-indexer",
         config=ServiceConfig(
-            image=indexer_config["image"],
+            image="babylon-staking-indexer:latest",
+            ports={"metrics": PortSpec(number=8081, transport_protocol="TCP")},
             env_vars={
+                "MONGODB_URI": backend_args["mongo_uri"],
                 "BTC_RPC_URL": backend_args["btc_rpc"],
-                "BABYLON_RPC_URL": list(backend_args["babylon_networks"].values())[0][0]["name"] + ":26657",
-                "MONGO_URI": backend_args["mongo_uri"],
-                "MONGO_USERNAME": "admin",
-                "MONGO_PASSWORD": "password123"
+                "BABYLON_RPC_URL": "http://{}:26657".format(list(backend_args["babylon_networks"].values())[0][0]["ip"])
             },
-            min_cpu=indexer_config.get("min_cpu", 2000),
-            min_memory=indexer_config.get("min_memory", 4096)
+            min_cpu=500,
+            min_memory=512
         )
     )
     
-    api_config = staking_config["api"]
     api_service = plan.add_service(
-        name="staking-api",
+        name="babylon-staking-api",
         config=ServiceConfig(
-            image=api_config["image"],
-            ports={
-                "api": PortSpec(number=8080, transport_protocol="TCP", wait="30s"),
-                "metrics": PortSpec(number=9090, transport_protocol="TCP", wait=None)
-            },
+            image="babylon-staking-api:latest",
+            ports={"http": PortSpec(number=8080, transport_protocol="TCP", wait="2m")},
             env_vars={
-                "BTC_RPC_URL": backend_args["btc_rpc"],
-                "BABYLON_RPC_URL": list(backend_args["babylon_networks"].values())[0][0]["name"] + ":26657",
-                "MONGO_URI": backend_args["mongo_uri"],
-                "MONGO_USERNAME": "admin",
-                "MONGO_PASSWORD": "password123",
-                "PORT": "8080"
+                "MONGODB_URI": backend_args["mongo_uri"],
+                "RABBITMQ_URL": "amqp://user:${RABBITMQ_PASSWORD:-dev}@rabbitmq:5672/",
+                "BTC_RPC_URL": backend_args["btc_rpc"]
             },
-            min_cpu=api_config.get("min_cpu", 1000),
-            min_memory=api_config.get("min_memory", 2048)
+            min_cpu=1000,
+            min_memory=1024
         )
     )
     
-    expiry_config = staking_config["expiry_checker"]
     expiry_service = plan.add_service(
-        name="staking-expiry-checker",
+        name="babylon-expiry-checker",
         config=ServiceConfig(
-            image=expiry_config["image"],
+            image="babylon-staking-api:latest",
             env_vars={
-                "BTC_RPC_URL": backend_args["btc_rpc"],
-                "BABYLON_RPC_URL": list(backend_args["babylon_networks"].values())[0][0]["name"] + ":26657",
-                "MONGO_URI": backend_args["mongo_uri"],
-                "MONGO_USERNAME": "admin",
-                "MONGO_PASSWORD": "password123",
+                "MONGODB_URI": backend_args["mongo_uri"],
                 "CHECK_INTERVAL": "60"
             },
-            min_cpu=expiry_config.get("min_cpu", 500),
-            min_memory=expiry_config.get("min_memory", 1024)
+            entrypoint=["/bin/staking-api-service", "expiry-checker"],
+            min_cpu=200,
+            min_memory=256
         )
     )
     
-    global_config_config = staking_config["global_config"]
     global_config_service = plan.add_service(
-        name="global-config",
+        name="babylon-global-config",
         config=ServiceConfig(
-            image=global_config_config["image"],
-            ports={
-                "api": PortSpec(number=8081, transport_protocol="TCP", wait="30s")
-            },
+            image="babylon-staking-api:latest",
+            ports={"http": PortSpec(number=8082, transport_protocol="TCP")},
             env_vars={
-                "BABYLON_RPC_URL": list(backend_args["babylon_networks"].values())[0][0]["name"] + ":26657",
-                "PORT": "8081"
+                "MONGODB_URI": backend_args["mongo_uri"]
             },
-            min_cpu=global_config_config.get("min_cpu", 500),
-            min_memory=global_config_config.get("min_memory", 512)
+            entrypoint=["/bin/staking-api-service", "global-config"],
+            min_cpu=200,
+            min_memory=256
         )
     )
     
@@ -114,8 +98,8 @@ def deploy(plan, backend_args, parsed_args):
     
     return {
         "mongodb": mongodb_service,
-        "staking-indexer": indexer_service,
-        "staking-api": api_service,
-        "staking-expiry-checker": expiry_service,
-        "global-config": global_config_service
+        "babylon-staking-indexer": indexer_service,
+        "babylon-staking-api": api_service,
+        "babylon-expiry-checker": expiry_service,
+        "babylon-global-config": global_config_service
     }

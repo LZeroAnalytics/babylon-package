@@ -5,39 +5,52 @@ echo "Starting Babylon node: {{ .NodeName }}"
 echo "Chain ID: {{ .ChainID }}"
 echo "Binary: {{ .Binary }}"
 
-# Create directory structure since babylond binary is not available
-mkdir -p {{ .ConfigFolder }}
-mkdir -p {{ .ConfigFolder }}/../config
+# Set home directory that the container user can access
+export BABYLON_HOME=/home/babylon/.babylond
+mkdir -p $BABYLON_HOME/config
 
 # Copy genesis file
-cp /tmp/genesis/genesis.json {{ .ConfigFolder }}/genesis.json
+cp /tmp/genesis/genesis.json $BABYLON_HOME/config/genesis.json
 
-# Placeholder: Initialize node (babylond binary not available)
-if [ ! -f "{{ .ConfigFolder }}/node_key.json" ]; then
-    echo "Placeholder: Initializing node..."
-    echo "Placeholder: would run: {{ .Binary }} init {{ .NodeName }} --chain-id {{ .ChainID }} --recover"
-    # Create placeholder files
-    echo '{}' > {{ .ConfigFolder }}/node_key.json
-    echo '{}' > {{ .ConfigFolder }}/priv_validator_key.json
+# Initialize node if not already done
+if [ ! -f "$BABYLON_HOME/config/node_key.json" ]; then
+    echo "Initializing node..."
+    {{ .Binary }} init {{ .NodeName }} --chain-id {{ .ChainID }} --home $BABYLON_HOME --overwrite --no-bls-password
 fi
 
-# Placeholder: Configure node (babylond binary not available)
-echo "Placeholder: would run: {{ .Binary }} config chain-id {{ .ChainID }}"
-echo "Placeholder: would run: {{ .Binary }} config keyring-backend test"
+# Use --no-bls-password flag only to avoid password conflicts
 
-# Placeholder: Set up validator key (babylond binary not available)
-echo "Placeholder: would run: {{ .Binary }} keys add validator --recover --keyring-backend test"
+# Configure node
+{{ .Binary }} config chain-id {{ .ChainID }} --home $BABYLON_HOME
+{{ .Binary }} config keyring-backend test --home $BABYLON_HOME
 
-# Placeholder: Configure app.toml and config.toml (babylond binary not available)
-echo "Placeholder: would configure app.toml and config.toml files"
-# Create placeholder config files
-mkdir -p {{ .ConfigFolder }}/../config
-echo 'placeholder config' > {{ .ConfigFolder }}/../config/app.toml
-echo 'placeholder config' > {{ .ConfigFolder }}/config.toml
+# Set up validator key
+echo "{{ .Mnemonic }}" | {{ .Binary }} keys add val --recover --keyring-backend test --home $BABYLON_HOME || echo "Key already exists"
+
+# Configure app.toml
+sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "1ubbn"/' $BABYLON_HOME/config/app.toml
+sed -i 's/enable = false/enable = true/' $BABYLON_HOME/config/app.toml
+sed -i 's/swagger = false/swagger = true/' $BABYLON_HOME/config/app.toml
+sed -i 's/enable-unsafe-cors = false/enable-unsafe-cors = true/' $BABYLON_HOME/config/app.toml
+sed -i 's/enabled-unsafe-cors = false/enabled-unsafe-cors = true/' $BABYLON_HOME/config/app.toml
+
+# Configure config.toml
+sed -i 's/cors_allowed_origins = \[\]/cors_allowed_origins = ["*"]/' $BABYLON_HOME/config/config.toml
+sed -i 's/"tcp:\/\/127.0.0.1:26657"/"tcp:\/\/0.0.0.0:26657"/' $BABYLON_HOME/config/config.toml
+sed -i 's/addr_book_strict = true/addr_book_strict = false/' $BABYLON_HOME/config/config.toml
+sed -i 's/allow_duplicate_ip = false/allow_duplicate_ip = true/' $BABYLON_HOME/config/config.toml
+sed -i 's/timeout_commit = "[^"]*"/timeout_commit = "5s"/' $BABYLON_HOME/config/config.toml
 
 echo "Starting {{ .Binary }} with seed options: {{ .SeedOptions }}"
 
-# Placeholder: Start the node (babylond binary not available, so just keep container running)
-echo "Placeholder: Babylon node would start here with: {{ .Binary }} start {{ .SeedOptions }} {{ .BabylondArgs }}"
-echo "Keeping container alive for testing purposes..."
-tail -f /dev/null
+# Validate genesis file before starting
+echo "Validating genesis file..."
+{{ .Binary }} validate-genesis --home $BABYLON_HOME || echo "Genesis validation failed, continuing anyway..."
+
+# Start the node with proper logging like babylon-deployment
+echo "Starting babylond with command: {{ .Binary }} --home $BABYLON_HOME start {{ .SeedOptions }} {{ .BabylondArgs }}"
+echo "Current working directory: $(pwd)"
+echo "Home directory contents: $(ls -la $BABYLON_HOME/config/)"
+
+# Start babylond with proper logging like babylon-deployment and BLS password automation
+echo "" | {{ .Binary }} --home $BABYLON_HOME start {{ .SeedOptions }} {{ .BabylondArgs }} --log_format 'plain' --no-bls-password 2>&1 | tee $BABYLON_HOME/babylond.log

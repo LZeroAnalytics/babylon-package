@@ -4,7 +4,7 @@ def launch_network(plan, genesis_files, parsed_args):
         chain_name = chain["name"]
         chain_id = chain["chain_id"]
         binary = chain["binary"]
-        config_folder = "/root/.babylond/config"
+        config_folder = "/home/babylon/.babylond/config"
         babylond_args = ""
         
         genesis_file = genesis_files[chain_name]["genesis_file"]
@@ -105,10 +105,10 @@ def start_node(plan, node_name, participant, binary, chain_id, babylond_args, co
     }
     
     ports = {
-        "rpc": PortSpec(number=26657, transport_protocol="TCP", wait=None),
+        "rpc": PortSpec(number=26657, transport_protocol="TCP", wait="2m"),
         "p2p": PortSpec(number=26656, transport_protocol="TCP", wait=None),
-        "grpc": PortSpec(number=9090, transport_protocol="TCP", wait=None),
-        "api": PortSpec(number=1317, transport_protocol="TCP", wait=None),
+        "grpc": PortSpec(number=9090, transport_protocol="TCP", wait="2m"),
+        "api": PortSpec(number=1317, transport_protocol="TCP", wait="2m"),
         "prometheus": PortSpec(number=26660, transport_protocol="TCP", wait=None)
     }
     
@@ -127,8 +127,14 @@ def start_node(plan, node_name, participant, binary, chain_id, babylond_args, co
         )
     )
     
-    # Placeholder for node ID since babylond binary is not available
-    node_id = "placeholder_node_id_{}".format(node_name)
+    # Get node ID from the running service
+    node_id_result = plan.exec(
+        service_name=node_name, 
+        recipe=ExecRecipe(
+            command=[binary, "tendermint", "show-node-id"]
+        )
+    )
+    node_id = node_id_result["output"].replace("\n", "")
     node_ip = service.ip_address
     
     return node_id, node_ip

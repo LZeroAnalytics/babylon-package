@@ -126,6 +126,30 @@ curl -X POST http://localhost:8080/v2/delegate \
   -H "Content-Type: application/json" \
   -d '{
     "staker_btc_pk": "...",
+| Babylon Explorer | 3000 | HTTP | TypeScript block explorer |
+| Bitcoin Explorer | 5000 | HTTP | Esplora-based explorer |
+| MongoDB | 27017 | TCP | Database for staking backend |
+| RabbitMQ | 5672 | TCP | Message queue for staking events |
+
+### Testing Real Blockchain Functionality
+
+After deployment, verify the services are working:
+
+```bash
+# Check Babylon node status
+curl http://localhost:26657/status
+
+# Check Bitcoin Signet status  
+curl -u bitcoin:password http://localhost:38332 -d '{"jsonrpc":"1.0","id":"test","method":"getblockcount","params":[]}'
+
+# Check staking API
+curl http://localhost:8080/v1/stats
+
+# Access block explorers
+open http://localhost:3000  # Babylon Explorer
+open http://localhost:5000  # Bitcoin Explorer
+```
+
     "finality_provider_btc_pk": "...",
     "staking_amount": 100000,
     "staking_time": 1000

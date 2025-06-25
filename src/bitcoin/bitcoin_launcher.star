@@ -14,7 +14,7 @@ def deploy(plan, parsed_args):
             env_vars={
                 "BITCOIN_NETWORK": "signet",
                 "RPC_USER": "bitcoin",
-                "RPC_PASSWORD": "bitcoin123",
+                "RPC_PASSWORD": "${BITCOIN_RPC_PASSWORD:-dev}",
                 "RPC_ALLOW_IP": "0.0.0.0/0"
             },
             cmd=[
@@ -24,7 +24,7 @@ def deploy(plan, parsed_args):
                 "-rpcbind=0.0.0.0:38332",
                 "-rpcallowip=0.0.0.0/0",
                 "-rpcuser=bitcoin",
-                "-rpcpassword=bitcoin123",
+                "-rpcpassword=${BITCOIN_RPC_PASSWORD:-dev}",
                 "-fallbackfee=0.0002",
                 "-txindex=1"
             ]
@@ -44,15 +44,23 @@ echo "Starting Bitcoin Signet auto-miner..."
 echo "Mining interval: {{ .MineInterval }} seconds"
 
 # Wait for bitcoind to be ready
-sleep 10
+sleep 15
+
+# Create descriptor wallet (modern Bitcoin Core format)
+echo "Creating descriptor wallet..."
+bitcoin-cli -signet -rpcuser=bitcoin -rpcpassword=${BITCOIN_RPC_PASSWORD:-dev} -rpcconnect=bitcoin-signet -rpcport=38332 createwallet "miner" false false "" false true true || echo "Wallet creation attempted"
+
+# Load wallet to ensure it's available
+echo "Loading wallet..."
+bitcoin-cli -signet -rpcuser=bitcoin -rpcpassword=${BITCOIN_RPC_PASSWORD:-dev} -rpcconnect=bitcoin-signet -rpcport=38332 loadwallet "miner" || echo "Wallet load attempted"
 
 # Generate initial address for mining
-MINING_ADDRESS=$(bitcoin-cli -signet -rpcuser=bitcoin -rpcpassword=bitcoin123 -rpcconnect=bitcoin-signet -rpcport=38332 getnewaddress)
+MINING_ADDRESS=$(bitcoin-cli -signet -rpcuser=bitcoin -rpcpassword=${BITCOIN_RPC_PASSWORD:-dev} -rpcconnect=bitcoin-signet -rpcport=38332 getnewaddress)
 echo "Mining to address: $MINING_ADDRESS"
 
-while true do
+while true; do
     echo "Mining block..."
-    bitcoin-cli -signet -rpcuser=bitcoin -rpcpassword=bitcoin123 -rpcconnect=bitcoin-signet -rpcport=38332 generatetoaddress 1 $MINING_ADDRESS
+    bitcoin-cli -signet -rpcuser=bitcoin -rpcpassword=${BITCOIN_RPC_PASSWORD:-dev} -rpcconnect=bitcoin-signet -rpcport=38332 generatetoaddress 1 $MINING_ADDRESS
     echo "Block mined, waiting {{ .MineInterval }} seconds..."
     sleep {{ .MineInterval }}
 done
@@ -77,7 +85,8 @@ done
             )
         )
     
-    rpc_url = "http://bitcoin:bitcoin123@{}:{}".format(bitcoin_service.ip_address, 38332)
+    rpc_password = "${BITCOIN_RPC_PASSWORD:-dev}"
+    rpc_url = "http://bitcoin:{}@{}:{}".format(rpc_password, bitcoin_service.ip_address, 38332)
     
     plan.print("Bitcoin Signet deployed successfully")
     plan.print("RPC URL: {}".format(rpc_url))
@@ -88,5 +97,5 @@ done
         "rpc_host": bitcoin_service.ip_address,
         "rpc_port": 38332,
         "rpc_user": "bitcoin",
-        "rpc_password": "bitcoin123"
+        "rpc_password": "${BITCOIN_RPC_PASSWORD:-dev}"
     }
