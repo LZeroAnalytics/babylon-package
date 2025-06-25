@@ -1,0 +1,21 @@
+chains:
+  - name: "babylon"
+    chain_id: "babylon-devnet-1"
+    participants:
+      - count: 4
+        account_balance: "1000000000000000"
+        bond_amount: "300000000000000"
+        min_cpu: 1500
+        min_memory: 2048
+    additional_services:
+      - "faucet"
+
+bitcoin:
+  auto_mine: true
+  mine_interval: 8
+
+staking_backend:
+  enabled: true
+  indexer:
+    min_cpu: 3000
+    min_memory: 6144

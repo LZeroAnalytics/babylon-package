@@ -1,0 +1,45 @@
+name: github.com/LZeroAnalytics/babylon-package
+description: |
+  Babylon Package
+  ===============
+  This Kurtosis package instantiates private Babylon testnets with Bitcoin Signet integration and full staking backend services. It automates genesis file generation, network launching with proper seed node topology, Bitcoin Signet deployment, and staking API services for BTC-to-Babylon staking operations.
+
+  Prerequisites
+  -------------
+  - Basic understanding of Babylon blockchain and Bitcoin Signet
+  - Knowledge of BTC staking mechanisms and finality providers
+  - Understanding of Cosmos SDK blockchain architecture
+
+  Configuration
+  -------------
+  To configure this package, you'll need to provide the following information:
+  - `chains`: Configuration for Babylon blockchain networks
+    - `name`: Chain name (e.g., "babylon")
+    - `chain_id`: Unique identifier for the chain
+    - `denom`: Token denomination configuration (name, display, symbol, units)
+    - `participants`: Validator and finality provider configuration
+  - `bitcoin`: Bitcoin Signet configuration
+    - `auto_mine`: Enable automatic block mining
+    - `mine_interval`: Block mining interval in seconds
+  - `staking_backend`: Staking services configuration
+    - `indexer`: Bitcoin transaction indexing service
+    - `api`: REST/GraphQL staking API
+    - `expiry_checker`: Automated stake expiry management
+  - `services`: Additional services to deploy
+    - `faucet`: Token distribution service for both BTC and BBN
+    - `explorer`: Babylon block explorer
+
+  Seed Node Topology
+  ------------------
+  The package implements proper seed node topology for Babylon networks:
+  - First node starts without any seeds (becomes the seed node)
+  - All subsequent nodes connect to the first node using --p2p.seeds flag
+  - This ensures proper network formation and connectivity
+
+  Staking Integration
+  -------------------
+  The package provides full BTC-to-Babylon staking functionality:
+  - Bitcoin Signet for testing BTC transactions
+  - Staking indexer monitors Bitcoin transactions
+  - Staking API provides endpoints for stake/unstake operations
+  - Automatic expiry checking and unbonding

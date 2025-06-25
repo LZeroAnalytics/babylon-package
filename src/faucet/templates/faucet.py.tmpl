@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+
+import json
+import subprocess
+import requests
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+CHAIN_NAME = "{{ .ChainName }}"
+CHAIN_ID = "{{ .ChainID }}"
+FAUCET_MNEMONIC = "{{ .FaucetMnemonic }}"
+TRANSFER_AMOUNT = "{{ .TransferAmount }}"
+BTC_RPC_URL = "{{ .BTCRPCUrl }}"
+BTC_RPC_USER = "{{ .BTCRPCUser }}"
+BTC_RPC_PASSWORD = "{{ .BTCRPCPassword }}"
+
+def call_bitcoin_rpc(method, params=None):
+    if params is None:
+        params = []
+    
+    payload = {
+        "jsonrpc": "1.0",
+        "id": "faucet",
+        "method": method,
+        "params": params
+    }
+    
+    try:
+        response = requests.post(
+            BTC_RPC_URL,
+            json=payload,
+            auth=(BTC_RPC_USER, BTC_RPC_PASSWORD),
+            timeout=30
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Bitcoin RPC error: {e}")
+        return None
+
+def send_babylon_tokens(address, amount):
+    try:
+        cmd = [
+            "babylond", "tx", "bank", "send",
+            "faucet", address, f"{amount}ubbn",
+            "--chain-id", CHAIN_ID,
+            "--keyring-backend", "test",
+            "--yes", "--output", "json"
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0:
+            return {"success": True, "txhash": json.loads(result.stdout).get("txhash", "")}
+        else:
+            return {"success": False, "error": result.stderr}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "healthy", "chain": CHAIN_NAME})
+
+@app.route('/fund_bbn', methods=['POST'])
+def fund_babylon():
+    data = request.get_json()
+    
+    if not data or 'address' not in data:
+        return jsonify({"error": "Missing address parameter"}), 400
+    
+    address = data['address']
+    amount = data.get('amount', TRANSFER_AMOUNT)
+    
+    result = send_babylon_tokens(address, amount)
+    
+    if result['success']:
+        return jsonify({
+            "success": True,
+            "message": f"Sent {amount} ubbn to {address}",
+            "txhash": result.get('txhash', '')
+        })
+    else:
+        return jsonify({
+            "success": False,
+            "error": result['error']
+        }), 500
+
+@app.route('/fund_btc', methods=['POST'])
+def fund_bitcoin():
+    data = request.get_json()
+    
+    if not data or 'address' not in data:
+        return jsonify({"error": "Missing address parameter"}), 400
+    
+    address = data['address']
+    amount = float(data.get('amount', '1.0'))
+    
+    result = call_bitcoin_rpc("sendtoaddress", [address, amount])
+    
+    if result and 'result' in result:
+        return jsonify({
+            "success": True,
+            "message": f"Sent {amount} BTC to {address}",
+            "txid": result['result']
+        })
+    else:
+        error_msg = result.get('error', {}).get('message', 'Unknown error') if result else 'RPC call failed'
+        return jsonify({
+            "success": False,
+            "error": error_msg
+        }), 500
+
+@app.route('/stats', methods=['GET'])
+def stats():
+    btc_info = call_bitcoin_rpc("getblockchaininfo")
+    
+    try:
+        babylon_status = subprocess.run(
+            ["babylond", "status"],
+            capture_output=True, text=True, timeout=10
+        )
+        babylon_info = json.loads(babylon_status.stdout) if babylon_status.returncode == 0 else {}
+    except:
+        babylon_info = {}
+    
+    return jsonify({
+        "bitcoin": {
+            "blocks": btc_info['result']['blocks'] if btc_info and 'result' in btc_info else 0,
+            "network": "signet"
+        },
+        "babylon": {
+            "latest_block_height": babylon_info.get('SyncInfo', {}).get('latest_block_height', '0'),
+            "catching_up": babylon_info.get('SyncInfo', {}).get('catching_up', True),
+            "chain_id": CHAIN_ID
+        }
+    })
+
+if __name__ == '__main__':
+    print(f"Starting faucet for {CHAIN_NAME}")
+    print(f"Babylon funding endpoint: POST /fund_bbn")
+    print(f"Bitcoin funding endpoint: POST /fund_btc")
+    print(f"Stats endpoint: GET /stats")
+    app.run(host='0.0.0.0', port=5000, debug=True)

@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+echo "Starting Babylon node: {{ .NodeName }}"
+echo "Chain ID: {{ .ChainID }}"
+echo "Binary: {{ .Binary }}"
+
+# Create directory structure since babylond binary is not available
+mkdir -p {{ .ConfigFolder }}
+mkdir -p {{ .ConfigFolder }}/../config
+
+# Copy genesis file
+cp /tmp/genesis/genesis.json {{ .ConfigFolder }}/genesis.json
+
+# Placeholder: Initialize node (babylond binary not available)
+if [ ! -f "{{ .ConfigFolder }}/node_key.json" ]; then
+    echo "Placeholder: Initializing node..."
+    echo "Placeholder: would run: {{ .Binary }} init {{ .NodeName }} --chain-id {{ .ChainID }} --recover"
+    # Create placeholder files
+    echo '{}' > {{ .ConfigFolder }}/node_key.json
+    echo '{}' > {{ .ConfigFolder }}/priv_validator_key.json
+fi
+
+# Placeholder: Configure node (babylond binary not available)
+echo "Placeholder: would run: {{ .Binary }} config chain-id {{ .ChainID }}"
+echo "Placeholder: would run: {{ .Binary }} config keyring-backend test"
+
+# Placeholder: Set up validator key (babylond binary not available)
+echo "Placeholder: would run: {{ .Binary }} keys add validator --recover --keyring-backend test"
+
+# Placeholder: Configure app.toml and config.toml (babylond binary not available)
+echo "Placeholder: would configure app.toml and config.toml files"
+# Create placeholder config files
+mkdir -p {{ .ConfigFolder }}/../config
+echo 'placeholder config' > {{ .ConfigFolder }}/../config/app.toml
+echo 'placeholder config' > {{ .ConfigFolder }}/config.toml
+
+echo "Starting {{ .Binary }} with seed options: {{ .SeedOptions }}"
+
+# Placeholder: Start the node (babylond binary not available, so just keep container running)
+echo "Placeholder: Babylon node would start here with: {{ .Binary }} start {{ .SeedOptions }} {{ .BabylondArgs }}"
+echo "Keeping container alive for testing purposes..."
+tail -f /dev/null
