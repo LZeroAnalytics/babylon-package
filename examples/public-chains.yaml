@@ -1,0 +1,16 @@
+chains:
+  - name: "babylon"
+    chain_id: "babylon-testnet-1"
+    connect_existing: true
+    rpc_url: "https://rpc.testnet.babylonchain.io"
+    participants: []
+    additional_services:
+      - "faucet"
+
+bitcoin:
+  connect_existing: true
+  rpc_url: "https://public-signet.node:38332"
+  auto_mine: false
+
+staking_backend:
+  enabled: true
